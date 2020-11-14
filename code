@@ -1,0 +1,320 @@
+import telebot
+from telebot import types
+import sqlite3
+bot = telebot.TeleBot('1431129673:AAHxSrKHQX4073FpL-r9kwO0jpBl0UkR-ME')
+
+
+
+
+_connection = None
+
+def get_connection(name):
+    print('Соединение')
+    print(name)
+    global _connection
+    if _connection is None:
+        _connection = sqlite3.connect(name,check_same_thread=False)
+    return _connection
+
+def get_connection2():
+    global _connection
+    _connection = sqlite3.connect("upzazh.db",check_same_thread=False)
+    return _connection
+
+def init_db(force: bool = False):
+    conn = get_connection('anketa2.db')
+    c = conn.cursor()
+
+    if force:
+        c.execute('DROP TABLE IF EXISTS user_info')
+        
+    c.execute('''
+            CREATE TABLE IF NOT EXISTS user_info(
+                id  INTEGER PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                rost INTEGER,
+                ves INTEGER,
+                age INTEGER
+            )
+    ''')
+    conn.commit()
+
+def init_db_zan(force: bool = False):
+    conn = get_connection('anketa2.db')
+    c = conn.cursor()
+
+    if force:
+        c.execute('DROP TABLE IF EXISTS user_info')
+        
+    c.execute('''
+            CREATE TABLE IF NOT EXISTS user_info(
+                id  INTEGER PRIMARY KEY,
+                name text NOT NULL,
+                lv0 text,
+                lv1 text,
+                lv2 text,
+                lv3 text,
+            )
+    ''')
+    conn.commit()
+
+
+
+def add_info(user_id: int, rost: int, ves: int, age:int):
+    conn = get_connection('anketa2.db')
+    c = conn.cursor()
+    c.execute('INSERT INTO user_info(user_id, rost, ves, age) VALUES(?,?,?,?)',(user_id,rost,ves,age))
+    conn.commit()
+    c.close()
+
+def get_info(user_id: int):
+    
+    conn = get_connection('anketa2.db')
+    c = conn.cursor()
+
+    print(user_id)
+    c.execute('SELECT * FROM user_info WHERE user_id ='+str(user_id))
+    row = c.fetchone()
+    print("!!!!!")
+    print(row)
+    print("!!!!!")
+    rost = row[2]
+    ves = row[3]
+    age = row[4]
+    return rost, ves, age
+    print( row[0], row[1], row[2], row[3], row[4])
+    conn.commit()
+    c.close()
+
+def udate_info(user_id: int, rost: int, ves: int, age:int):
+    conn = get_connection('anketa2.db')
+    c = conn.cursor()
+    c.execute('UPDATE user_info SET rost = '+str(rost)+', ves = '+str(ves)+', age = '+str(age)+' WHERE user_id = '+str(user_id))
+    conn.commit()
+    c.close()
+
+import random
+rost = 0
+ves = 0
+age = 0
+ind = 0
+upr = ['приседания', 'отжимания','прыжки на скакалке','подтягивания','бег']
+kat = 0
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.send_message(message.from_user.id, "Привет, я спорт_бот, помогу тебе стать спортивным.")
+    bot.send_message(message.from_user.id, "Введи свой рост (Например: 187)")
+    bot.register_next_step_handler(message, get_rost)
+
+def get_rost(message):
+    global rost
+    print("!!!!!!!!!!!!!!")
+    print(message.from_user.id)
+    print("!!!!!!!!!!!!!!")
+    try:
+        rost = int(message.text)
+        bot.send_message(message.from_user.id, 'Введи свой вес')
+        bot.register_next_step_handler(message, get_ves)
+    except:
+        bot.send_message(message.from_user.id, 'Введите числом')
+        bot.register_next_step_handler(message, get_rost)
+    
+
+def get_ves(message):
+    global ves
+    global ind
+    try:
+        ves = int(message.text)
+        bot.send_message(message.from_user.id, 'Ваш индекс тела:')
+        ind = ves/(rost/100*rost/100)
+        bot.send_message(message.from_user.id, str(ind))
+        bot.send_message(message.from_user.id, 'Введите ваш возраст:')
+        bot.register_next_step_handler(message, age)
+    except:
+        bot.send_message(message.from_user.id, 'Введите числом')
+        bot.register_next_step_handler(message, get_ves)
+    
+
+def age(message):
+    global age 
+    global rost
+    global ves 
+    try:
+        age = int(message.text)
+        bot.send_message(message.from_user.id, '''Выберите нужное упражнение:
+        /list - вывести список упражнений 
+        /pris - приседания
+        /podt - подтягивания
+        /beg - бег
+        /otzhim - отжимания
+        /berpi - берпи
+        /vel - велосипед
+        /plan - планка
+        /beg2 - бег с высоким подъемом колен
+        /pres - пресс
+        /foot - махи ногами
+        /foot2 - выпады
+        /windmill - мельница
+        /beg2 - бег в упоре лёжа
+        /birch - берёзка
+        /chair - cтульчик''')
+    except:
+        bot.send_message(message.from_user.id, 'Введите числом')
+        bot.register_next_step_handler(message, age)
+    print("!!!!!!!!!!!!!!")
+    print(message.from_user.id)
+    print(rost)
+    print(ves)
+    print(age)
+    print("!!!!!!!!!!!!!!")
+    conn = get_connection("anketa2.db")
+    c = conn.cursor()
+    c.execute('SELECT * FROM user_info WHERE user_id ='+str(message.from_user.id))
+    row = c.fetchone()
+    conn.commit()
+    if row == None:
+        add_info(user_id = message.from_user.id, rost=rost, ves=ves, age=age)
+    else:
+        udate_info(user_id = message.from_user.id, rost=rost, ves=ves, age=age)
+    c.close()
+    
+
+def uprazh(name2):
+    conn = get_connection2()
+    c = conn.cursor() 
+    c.execute('SELECT * FROM user_info')
+    while True:
+        row = c.fetchone()
+        print(row)
+        print(row[1])
+        if row[1] == name2:
+            break
+    print(row)
+    inform = row[2]
+    lv0 = row[3]
+    lv1 = row[4]
+    lv2 = row[5]
+    lv3 = row[6]
+    picture = row[7]
+    return inform,lv0, lv1, lv2, lv3, picture
+    c.close()
+    
+
+def zapUpr(message,name):
+    rost,ves,age = get_info(message.from_user.id)
+    inform,lv0, lv1, lv2, lv3, picture = uprazh(name)
+    bot.send_message(message.from_user.id, inform)
+    bot.send_photo(message.chat.id,picture,name)
+    if ind > 30:
+        bot.send_message(message.from_user.id, 'Упражнение не рекомендуется, советуе ЛФК')
+    else:
+        if age < 13:
+            bot.send_message(message.from_user.id, lv0)
+        if age >= 13 and age < 18:
+            bot.send_message(message.from_user.id, lv1)
+        if age >= 18 and age < 45:
+            bot.send_message(message.from_user.id, lv2)
+        if age >= 45:
+            bot.send_message(message.from_user.id, lv3)
+@bot.message_handler(commands=['list'])
+def start1(message): 
+    bot.send_message(message.from_user.id, '''Выберите нужное упражнение: 
+    /list - вывести список упражнений
+    /pris - приседания
+    /podt - подтягивания
+    /beg - бег
+    /otzhim - отжимания
+    /berpi - берпи
+    /vel - велосипед
+    /plan - планка
+    /beg2 - бег с высоким подъемом колен
+    /pres - пресс
+    /foot - махи ногами
+    /foot2 - выпады
+    /windmill - мельница
+    /beg2 - бег в упоре лёжа
+    /birch - берёзка
+    /chair - cтульчик''')
+@bot.message_handler(commands=['pris'])
+def start3(message): 
+    name = 'Приседания'
+    zapUpr(message,name)
+    
+
+@bot.message_handler(commands=['otzhim'])
+def start4(message):
+    name = 'Отжимания'
+    zapUpr(message,name)
+   
+@bot.message_handler(commands=['beg'])
+def start2(message): 
+    name = 'Бег'
+    zapUpr(message,name)
+
+@bot.message_handler(commands=['berpi'])
+def start5(message): 
+    name = 'Берпи'
+    zapUpr(message,name)
+
+@bot.message_handler(commands=['podt'])
+def start6(message): 
+    name = 'Подтягивания'
+    zapUpr(message,name)
+
+@bot.message_handler(commands=['vel'])
+def start7(message): 
+    name = 'Велосипед'
+    zapUpr(message,name)
+
+@bot.message_handler(commands=['plan'])
+def start8(message): 
+    name = 'Планка'
+    zapUpr(message,name)
+
+@bot.message_handler(commands=['beg2'])
+def start9(message): 
+    name = 'Бег с высоким подъемом колен'
+    zapUpr(message,name)
+
+@bot.message_handler(commands=['pres'])
+def start10(message): 
+    name = 'Пресс'
+    zapUpr(message,name)
+
+
+@bot.message_handler(commands=['foot'])
+def start11(message): 
+    name = 'Махи ногами'
+    zapUpr(message,name)
+
+@bot.message_handler(commands=['foot2'])
+def start12(message): 
+    name = 'Выпады'
+    zapUpr(message,name)
+
+@bot.message_handler(commands=['windmill'])
+def start13(message): 
+    name = 'Мельница'
+    zapUpr(message,name)
+
+@bot.message_handler(commands=['beg2'])
+def start14(message): 
+    name = 'Бег в упоре лёжа'
+    zapUpr(message,name)
+
+@bot.message_handler(commands=['birch'])
+def start14(message): 
+    name = 'Берёзка'
+    zapUpr(message,name)
+
+@bot.message_handler(commands=['chair'])
+def start14(message): 
+    name = 'Стульчик'
+    zapUpr(message,name)
+
+bot.polling()
+
+
+
+
+#C:\Users\user\AppData\Local\Programs\Algoritmika\vscode\data\extensions\algoritmika.algopython-2.69.0\temp
